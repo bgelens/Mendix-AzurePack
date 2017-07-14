@@ -6,7 +6,7 @@ This repository contains:
 * VM Role artifacts
   * [MendixSingleInstance](/VMRole/MendixSingleInstance) (Deployes a single VM but can be scaled to a maximum of 10)
 * Documentation
-  * Base Image Creation
+  * [Base Image Creation](/Documentation/BaseImage.md)
   * Make VM Role available for tenants
   * [Deploy VM Role using MXWAPack PowerShell module](/Documentation/DeployVMRole.md)
   * Start / Stop / Update Mendix Application instructions using MXWAPack PowerShell module
