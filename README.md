@@ -12,3 +12,5 @@ This repository contains:
   * Start / Stop / Update Mendix Application instructions using MXWAPack PowerShell module
 
 \* Currently the MXWAPack PowerShell module only works when the Public Tenant API Certificate is trusted.
+
+The MendixSingleInstance VM Role targets a local PostgreSQL Instance. If you are planning to deploy against a shared SQL Server backend, see [this](https://github.com/itnetxbe/VMRoles/tree/master/SQL2016) external documentation to create a SQL VM Role.
