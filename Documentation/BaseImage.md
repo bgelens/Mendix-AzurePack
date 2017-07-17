@@ -84,14 +84,14 @@ The installation needs to have a couple of prerequisites set / installed before 
     ```powershell
     Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
     $settings = [Mendix.Service.Management.ApplicationManagerSettings]::new()
-    $settings.FilePath = 'C:\Mendix'
+    $settings.FilesPath = 'C:\Mendix'
     ```
 * Create MxAdmin local user
   ```powershell
   $adsi = [adsi]"WinNT://$env:COMPUTERNAME"
   $user = $adsi.Create('User', 'MxAdmin')
   $user.SetPassword('Demo1234!')
-  $user.SetFlags = 65600
+  $user.UserFlags = 65600
   $user.SetInfo()
   ([adsi]"WinNT://$env:COMPUTERNAME/Administrators,Group").Add($user.Path)
   ```
@@ -138,7 +138,7 @@ The installation needs to have a couple of prerequisites set / installed before 
     Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
     Update-MxApp -LiteralPath C:\FieldExampleaHold_1.0.0.8.mda -Name MendixApp
     ```
-  * Initialize the Database
+  * Setup Database settings and create empty database
     ```powershell
     Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
     $appSettings = [Mendix.M2EE.Settings]::GetInstance('C:\Mendix\Apps\MendixApp')
@@ -148,12 +148,84 @@ The installation needs to have a couple of prerequisites set / installed before 
     $appSettings.DatabaseUserName = 'postgres'
     $appSettings.DatabasePassword = 'Demo1234!'
     $appSettings.Save()
+
+    # Encrypt database password
+    $yamlContent = Get-Content -Path C:\Mendix\Apps\MendixApp\Settings.yaml
+    $origDbPassword = ($yamlContent | Select-String -Pattern "\s*\bDatabasePassword:.*").ToString()
+    $newDbPassword = [Mendix.M2EE.Utils.Encryption]::Encrypt('Demo1234!','MxAdmin',{[string]'Demo1234!'})
+    $newDbPassword = $origDbPassword.Split(':')[0] + ': ' + $newDbPassword
+    $yamlContent = $yamlContent.Replace($origDbPassword, $newDbPassword)
+    $yamlContent | Out-File C:\Mendix\Apps\MendixApp\Settings.yaml -Encoding utf8 -Force
+
+    $env:PGPASSWORD = 'Demo1234!'
+    & 'C:\Program Files\PostgreSQL\*\bin\createdb.exe' -w -U postgres local
+    ```
+  * Start the App and fill database
+    ```powershell
+    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+    Start-MxApp -Name MendixApp -SynchronizeDatabase
     ```
   * Create App user
-* Configure IIS
+    ```powershell
+    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+    Stop-MxApp -Name MendixApp
+    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
+    $appSettings.AdminServerPassword = 'Demo1234!'
+    $appSettings.Save()
+    Start-MxApp -Name MendixApp
+    $client = [Mendix.M2EE.M2EEClient]::new([version]"1.0.0",'http://localhost:8090/','Demo1234!')
+    $client.CreateAdminUser('Demo1234!')
+    ```
+* Configure IIS settings
+  ```powershell
+  Add-WebConfigurationProperty -Filter //staticContent -Name 'collection' -Value @{
+      fileExtension = '.mxf'
+      mimeType='text/xml'
+  }
+  Set-WebConfigurationProperty -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True'
+  Set-WebConfigurationProperty -Filter 'system.webServer/proxy' -Name 'preserveHostHeader' -Value 'True'
+  Remove-Website -Name 'Default Web Site'
+  New-WebAppPool -Name Mendix
+  New-Website -Name MendixApp -Port 80 -IPAddress * -PhysicalPath 'C:\Mendix\Apps\MendixApp\Project\web' -ApplicationPool 'Mendix'
 
+  $psPath = 'iis:\sites\MendixApp'
+
+  'xas', 'ws', 'doc', 'file', 'link' | ForEach-Object -Process {
+      $filterRoot = "system.webServer/rewrite/rules/rule[@name='$_']"
+
+      switch ($_) {
+          'xas' {$pattern = '^(xas/)(.*)'}
+          'ws' {$pattern = '^(ws/)(.*)'}
+          'doc' {$pattern = '^(ws-doc/)(.*)'}
+          'file' {$pattern = '^(file)(.*)'}
+          'link' {$pattern = '^(link/)(.*)'}
+      }
+
+      Add-WebConfigurationProperty -PSPath $psPath -Filter 'system.webServer/rewrite/rules' -Name '.' -Value @{
+          name = $_
+          patternSyntax = 'ECMAScript'
+          stopProcessing = 'False'
+      }
+      Set-WebConfigurationProperty -PSPath $psPath -Filter "$filterRoot/match" -Name 'url' -Value $pattern
+      Set-WebConfigurationProperty -pspath $psPath -Filter "$filterRoot/action" -Name 'type' -Value 'Rewrite'
+      Set-WebConfigurationProperty -PSPath $psPath -Filter "$filterRoot/action" -Name 'url' -Value 'http://localhost:8080/{R:1}{R:2}'
+  }
+  ```
 * Enable RDP
+  ```powershell
+  $cimInstance = Get-CimInstance -Namespace root\cimv2\TerminalServices -ClassName Win32_TerminalServiceSetting
+  $cimInstance | Invoke-CimMethod -MethodName SetAllowTSConnections -Arguments @{
+      AllowTSConnections = (1 -as [uint32])
+      ModifyFirewallException = (1 -as [uint32])
+  }
+  ```
 
 ## Generalize
 
-## Add to SCVMM library
+Now that the image is done, it has to be generalized.
+
+```cmd
+Sysprep.exe /generalize /oobe /shutdown
+```
+
+The image is now redeployable.
