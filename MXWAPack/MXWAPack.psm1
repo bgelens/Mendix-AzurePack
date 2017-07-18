@@ -413,6 +413,38 @@ function Repair-MXWAPackVMRole {
     InvokeAPICall -PartialUri ('/CloudServices/{0}/Resources/MicrosoftCompute/VMRoles/{0}/Repair' -f $VMRole.Name) -Method Post -Body $body
 }
 
+function Get-MXWAPackVMRoleOSDisk {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [System.Management.Automation.PSTypeName('MXWAPack.GalleryItem')] $GalleryItem
+    )
+    begin {
+        $disks = InvokeAPICall -PartialUri '/services/systemcenter/vmm/VirtualHardDisks' -ExcludeAPI
+    } process {
+        $osDisk = $GalleryItem.ViewDef.ViewDefinition.Sections.Categories.Parameters.Where{$_.Type -eq 'OSVirtualHardDisk'}
+        foreach ($d in $disks) {
+            $diskTags = $d.Tag
+            $compareTags = Compare-Object -ReferenceObject $diskTags -DifferenceObject $osDisk.ImageTags -IncludeEqual -ExcludeDifferent -PassThru
+            if ($null -ne $compareTags) {
+                if ($null -eq (Compare-Object -ReferenceObject $CompareTags -DifferenceObject $osDisk.ImageTags -PassThru)) {
+                    if ($d.enabled -eq $false) {
+                        continue
+                    }
+                    $d.AddedTime = [datetime] $d.AddedTime
+                    $d.ModifiedTime = [datetime] $d.ModifiedTime
+                    $d.ReleaseTime = [datetime] $d.ReleaseTime
+                    $d.PSObject.TypeNames.Insert(0,'MXWAPack.VMRoleOSDisk')
+                    Write-Output -InputObject $d
+                } else {
+                    continue
+                }
+            }
+        }
+    }
+}
+
+
 function Install-MXWAPackServerPackage {
     [cmdletbinding()]
     param (
@@ -465,6 +497,87 @@ function Install-MXWAPackServerPackage {
         }
     }
 }
+
+function Start-MXWAPackMendixApp {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+                    $null = Start-MxApp -Name MendixApp
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
+function Stop-MXWAPackMendixApp {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+                    $null = Stop-MxApp -Name MendixApp
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
 
 # helper functions
 function PreFlight {

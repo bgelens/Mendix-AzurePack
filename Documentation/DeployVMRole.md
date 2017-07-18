@@ -126,7 +126,7 @@ Assign a VM Network as the parameter value.
 $params.VMRoleNetworkRef = 'Tenant'
 ```
 
-The VMRoleOSVirtualHardDiskImage refersh to the VHD(x) to use for deployment. In this case the value has been predefined by a default (currently there is no function to find alternate compatible disks).
+The VMRoleOSVirtualHardDiskImage refers to the VHD(x) to use for deployment. In this case the value has been predefined by a default (if this is not the case, the correct OS disk can be discoverred by using the ```Get-MXWAPackVMRoleOSDisk``` function).
 
 Now the parameter object should have all values assigned.
 
