@@ -578,6 +578,60 @@ function Stop-MXWAPackMendixApp {
     }
 }
 
+function Update-MXWAPackMendixApp {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({(Test-Path -Path $_) -and ($_.Split('.')[-1] -eq 'mda')})]
+        [string] $Path,
+
+        [switch] $UseUnencryptedConnection
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $resolvedPath = (Resolve-Path -Path $Path).ToString()
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                $fileName = $resolvedPath.Split('\')[-1]
+                $tempDir = Invoke-Command -Session $psSession -ScriptBlock { $env:Temp }
+                Copy-Item -ToSession $psSession -Path $resolvedPath -Destination $tempDir\$fileName -Force
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+                    $packagePath = (Resolve-Path $env:Temp\$using:fileName).ToString()
+                    $null = Stop-MxApp -Name MendixApp
+                    $null = Update-MxApp -LiteralPath $packagePath -Name MendixApp |
+                        Start-MxApp -SynchronizeDatabase
+                    Remove-Item -Path $packagePath -Force
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
 
 # helper functions
 function PreFlight {
