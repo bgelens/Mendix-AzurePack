@@ -1,4 +1,4 @@
-# Create a Single Instance base image
+# Create a Multi Instance base image
 
 The VM Role artifacts depend on a base image to be available. The artifacts are tested using a Windows Server 2016 base image and might or might not work with Windows Server 2012 R2.
 
@@ -60,13 +60,6 @@ The installation needs to have a couple of prerequisites set / installed before 
   Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $env:Temp\jre.exe
   Start-Process -FilePath $env:Temp\jre.exe -ArgumentList '/s' -Wait
   Remove-Item -Path $env:Temp\jre.exe -Force
-  ```
-* Download and install PostgreSQL
-  ```powershell
-  $url = 'https://get.enterprisedb.com/postgresql/postgresql-9.6.3-2-windows-x64.exe'
-  Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $env:Temp\postgresql.exe
-  Start-Process -FilePath $env:Temp\postgresql.exe -ArgumentList '--unattendedmodeui none --mode unattended --superpassword "Demo1234!"' -Wait
-  Remove-Item -Path $env:Temp\postgresql.exe -Force
   ```
 * Download and install Mendix Service Controller
   * Create Mendix Folder
@@ -137,44 +130,6 @@ The installation needs to have a couple of prerequisites set / installed before 
 
     Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
     Update-MxApp -LiteralPath C:\FieldExampleaHold_1.0.0.8.mda -Name MendixApp
-    ```
-  * Setup Database settings and create empty database
-    ```powershell
-    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
-    $appSettings = [Mendix.M2EE.Settings]::GetInstance('C:\Mendix\Apps\MendixApp')
-    $appSettings.DatabaseType = 'POSTGRESQL'
-    $appSettings.DatabaseHost = 'localhost'
-    $appSettings.DatabaseName = 'local'
-    $appSettings.DatabaseUserName = 'postgres'
-    $appSettings.DatabasePassword = 'Demo1234!'
-    $appSettings.Save()
-
-    # Encrypt database password
-    $yamlContent = Get-Content -Path C:\Mendix\Apps\MendixApp\Settings.yaml
-    $origDbPassword = ($yamlContent | Select-String -Pattern "\s*\bDatabasePassword:.*").ToString()
-    $newDbPassword = [Mendix.M2EE.Utils.Encryption]::Encrypt('Demo1234!','MxAdmin',{[string]'Demo1234!'})
-    $newDbPassword = $origDbPassword.Split(':')[0] + ': ' + $newDbPassword
-    $yamlContent = $yamlContent.Replace($origDbPassword, $newDbPassword)
-    $yamlContent | Out-File C:\Mendix\Apps\MendixApp\Settings.yaml -Encoding utf8 -Force
-
-    $env:PGPASSWORD = 'Demo1234!'
-    & 'C:\Program Files\PostgreSQL\*\bin\createdb.exe' -w -U postgres local
-    ```
-  * Start the App and fill database
-    ```powershell
-    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
-    Start-MxApp -Name MendixApp -SynchronizeDatabase
-    ```
-  * Create App user
-    ```powershell
-    Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
-    Stop-MxApp -Name MendixApp
-    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
-    $appSettings.AdminServerPassword = 'Demo1234!'
-    $appSettings.Save()
-    Start-MxApp -Name MendixApp
-    $client = [Mendix.M2EE.M2EEClient]::new([version]"1.0.0",'http://localhost:8090/','Demo1234!')
-    $client.CreateAdminUser('Demo1234!')
     ```
 * Configure IIS settings
   ```powershell
