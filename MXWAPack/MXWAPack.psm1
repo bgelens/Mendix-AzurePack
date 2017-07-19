@@ -578,6 +578,47 @@ function Stop-MXWAPackMendixApp {
     }
 }
 
+function Get-MXWAPackMendixAppSettings {
+     [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
+                    $instance = [Mendix.Service.Management.ApplicationManagerSettings]::Instance
+                    [Mendix.M2EE.Settings]::GetInstances($instance.AppsPath,$instance.MdsGuid,$instance.ServersPath)
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
 function Update-MXWAPackMendixApp {
     [cmdletbinding()]
     param (
