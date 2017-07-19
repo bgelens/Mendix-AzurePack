@@ -4,7 +4,8 @@ This repository contains:
 
 * PowerShell Module [MXWAPack](/MXWAPack) to work with the Azure Pack Public Tenant API
 * VM Role artifacts
-  * [MendixSingleInstance](/VMRole/MendixSingleInstance) (Deployes a single VM but can be scaled to a maximum of 10)
+  * [MendixSingleInstance](/VMRole/MendixSingleInstance)
+  * [MendixMultiInstance](/VMRole/MendixMultiInstance)
 * Documentation
   * Base Image Creation
     * [Single Instance](/Documentation/BaseImage.md)
