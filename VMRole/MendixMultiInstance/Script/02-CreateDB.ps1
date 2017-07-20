@@ -3,6 +3,10 @@ param (
     [ValidateNotNullOrEmpty()]
     [string] $ServerName,
 
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $SqlUserName = 'sa',
+
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
     [string] $SqlPassword,
@@ -20,6 +24,10 @@ function Invoke-SQL {
         [ValidateNotNullOrEmpty()]
         [string] $ServerName,
 
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $SqlUserName = 'sa',
+
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [string] $SqlPassword,
@@ -33,7 +41,13 @@ function Invoke-SQL {
         [string] $ReturnType = 'Table'
     )
 
-    $connectionString = "Server=$ServerName;user id=sa;password=$SqlPassword;trusted_Connection=False;"
+    if ($ServerName.Split(':').Count -gt 1) {
+        $ServerName, $port = $ServerName.Split(':')
+    } else {
+        $port = 1433
+    }
+
+    $connectionString = "Server=$ServerName,$port;user id=$SqlUserName;password=$SqlPassword;trusted_Connection=False;"
 
     try {
         $connection = New-Object System.Data.SqlClient.SqlConnection
@@ -85,13 +99,13 @@ $testQuery = @'
 '@ -f $Database
 
 if (Test-Path -Path c:\VMRole\First) {
-    if ($null -eq (Invoke-SQL -ServerName $ServerName -SqlPassword $SqlPassword -Query $testQuery -ReturnType Value)) {
+    if ($null -eq (Invoke-SQL -ServerName $ServerName -SqlUserName $SqlUserName -SqlPassword $SqlPassword -Query $testQuery -ReturnType Value)) {
         $createQuery = @'
             CREATE DATABASE [{0}]
                 CONTAINMENT = NONE
 '@ -f $Database
 
-        Invoke-SQL -ServerName $ServerName -SqlPassword $SqlPassword -Query $createQuery -ReturnType None
+        Invoke-SQL -ServerName $ServerName -SqlUserName $SqlUserName -SqlPassword $SqlPassword -Query $createQuery -ReturnType None
 
         $loginQuery = @'
             If not Exists (select loginname from master.dbo.syslogins 
@@ -106,14 +120,14 @@ if (Test-Path -Path c:\VMRole\First) {
             exec sp_addsrvrolemember @loginame = '{0}', @rolename = 'sysadmin'
 '@ -f $Database, $Password
 
-        Invoke-SQL -ServerName $ServerName -SqlPassword $SqlPassword -Query $loginQuery -ReturnType None
+        Invoke-SQL -ServerName $ServerName -SqlUserName $SqlUserName -SqlPassword $SqlPassword -Query $loginQuery -ReturnType None
     }
     else {
         Write-Error -Message "Database with name $Database already exists on server $ServerName" -ErrorAction Stop
     }
 }
 else {
-    if ($null -eq (Invoke-SQL -ServerName $ServerName -SqlPassword $SqlPassword -Query $testQuery -ReturnType Value)) {
+    if ($null -eq (Invoke-SQL -ServerName $ServerName -SqlUserName $SqlUserName -SqlPassword $SqlPassword -Query $testQuery -ReturnType Value)) {
         Write-Error -Message "Database with name $Database dos not exist on server $ServerName" -ErrorAction Stop
     }
 }
