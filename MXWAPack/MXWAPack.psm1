@@ -444,7 +444,6 @@ function Get-MXWAPackVMRoleOSDisk {
     }
 }
 
-
 function Install-MXWAPackServerPackage {
     [cmdletbinding()]
     param (
@@ -486,6 +485,49 @@ function Install-MXWAPackServerPackage {
                     $packagePath = (Resolve-Path $env:Temp\$using:fileName).ToString()
                     Install-MxServer -LiteralPath $packagePath
                     Remove-Item -Path $packagePath -Force
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
+function Get-MXWAPackInstalledServerPackage {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
+                    $instance = [Mendix.Service.Management.ApplicationManagerSettings]::Instance
+                    Get-ChildItem -Path $instance.ServersPath | ForEach-Object -Process {
+                        [string] $_.Name
+                    }
                 }
             } catch {
                 Write-Error -ErrorRecord $_ -ErrorAction Continue
@@ -619,6 +661,52 @@ function Get-MXWAPackMendixAppSettings {
     }
 }
 
+function Get-MXWAPackMendixApp {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
+                    $instance = [Mendix.Service.Management.ApplicationManagerSettings]::Instance
+                    $apps = Get-ChildItem -Path $instance.AppsPath
+                    foreach ($a in $apps) {
+                        $metaData = "$($a.FullName)\Project\model\metadata.json"
+                        if (Test-Path -Path $metaData) {
+                            Get-Content -Path $metaData | ConvertFrom-Json
+                        }
+                    }
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
 function Update-MXWAPackMendixApp {
     [cmdletbinding()]
     param (
@@ -633,7 +721,11 @@ function Update-MXWAPackMendixApp {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [ValidateScript({(Test-Path -Path $_) -and ($_.Split('.')[-1] -eq 'mda')})]
+        [ValidateScript({
+            (Test-Path -Path $_) -and
+            ($_.Split('.')[-1] -eq 'mda') -and
+            (TestMendixPackage -Path $_)
+        })]
         [string] $Path,
 
         [switch] $UseUnencryptedConnection
@@ -674,6 +766,30 @@ function Update-MXWAPackMendixApp {
     }
 }
 
+function Get-MXWAPackMendixAppPackage {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            (Test-Path -Path $_) -and
+            ($_.Split('.')[-1] -eq 'mda') -and
+            (TestMendixPackage -Path $_)
+        })]
+        [string] $Path
+    )
+    $resolvedPath = (Resolve-Path -Path $Path).ToString()
+    $fileGuid = [guid]::NewGuid().ToString()
+    $manifestFile = [io.compression.zipfile]::OpenRead($resolvedPath).Entries |
+        Where-Object -FilterScript {$_.FullName -eq 'model/metadata.json'}
+    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestFile, "$env:TEMP\$fileGuid.json", $true)
+    try {
+        Get-Content -Path $env:TEMP\$fileGuid.json | ConvertFrom-Json
+    } finally {
+        Remove-Item -Path $env:TEMP\$fileGuid.json -ErrorAction SilentlyContinue
+    }
+}
+
 # helper functions
 function PreFlight {
     param (
@@ -686,6 +802,18 @@ function PreFlight {
     if ($IncludeSubscription -and $null -eq $script:selectedSubscription) {
         Write-Error -Message 'Run Select-MXWAPackPublishSettingSubscription first!' -ErrorAction Stop
     }
+}
+
+function TestMendixPackage {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Path
+    )
+    $resolvedPath = (Resolve-Path -Path $Path).ToString()
+    Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+    [io.compression.zipfile]::OpenRead($resolvedPath).Entries.FullName -contains 'model/metadata.json'
 }
 
 function InvokeAPICall {
