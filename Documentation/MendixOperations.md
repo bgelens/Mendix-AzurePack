@@ -23,7 +23,7 @@ Once the module is installed, it can be imported into a PowerShell session.
 Import-Module -Name MXWAPack
 ```
 
-## Work with already deployed Sinlge Intance VM Role using the MXWAPack module
+## Work with already deployed Single Intance VM Role using the MXWAPack module
 
 Now the PowerShell module is installed and imported, the publishsettings file can imported.
 
@@ -124,6 +124,37 @@ First run  ```Get-Credential``` (you need to enter the VMs administrator credent
 $cred = Get-Credential
 ````
 
+To see what Applications are installed:
+
+```powershell
+Get-MXWAPackMendixApp -ComputerName 172.16.1.65 -Credential $cred
+
+RuntimeVersion  : 6.8.1
+ProjectID       : b63a43c3-6eef-4fa7-9dab-0518f7d62678
+ProjectName     : FieldExampleaHold
+ModelVersion    : 1.0.0.8
+Description     :
+AdminUser       : MxAdmin
+Roles           : @{8dd52bfa-6d7e-453b-b506-303c0a3d9567=; 53f5d6fa-6da9-4a71-b011-454ec052cce8=}
+AdminRole       : 8dd52bfa-6d7e-453b-b506-303c0a3d9567
+Constants       : {@{Name=AdvanceGoogleMaps.BatchSize; Type=Integer; Description=Batch size would be the amount of elements allowed by
+                  the Google Distance Matrix API.
+
+                  At Time of Creation :
+
+                  The free version allows for 100 elements in a query, the cap should be
+                  set to 99. The queries will be made with one "origin" and 99 "destinations".
+
+                  The business version allows for 625 elements in a query, the cap should be
+                  set to 624. The queries will be made with one "origin" and 624 "destinations".; DefaultValue=99}}
+ScheduledEvents : {}
+Configuration   : @{SourceDatabaseType=HSQLDB; SourceDatabaseName=default; SourceBuiltInDatabasePath=model/sampledata/data/database}
+RequestHandlers : {@{Name=/api/; DefaultEnabled=True; MatchExactly=False}, @{Name=/link/; DefaultEnabled=True; MatchExactly=False}, @{Name=/ws/; DefaultEnabled=True; MatchExactly=False}, @{Name=/ws-doc/; Defaul
+                  tEnabled=False; MatchExactly=False}...}
+PSComputerName  : 172.16.1.65
+RunspaceId      : efa468a1-5f08-473a-8a69-acb6df2e7c6d
+```
+
 To see the MendixApp configuration:
 
 ```powershell
@@ -172,10 +203,48 @@ To start the app:
 Start-MXWAPackMendixApp -ComputerName 172.16.1.65 -Credential $cred
 ```
 
+To get details from a Mendix package to be installed:
+
+```powershell
+Get-MXWAPackMendixAppPackage -Path ~\Desktop\Downloads\FieldExampleaHold_1.0.0.6.mda
+
+RuntimeVersion  : 6.8.0
+ProjectID       : b63a43c3-6eef-4fa7-9dab-0518f7d62678
+ProjectName     : FieldExampleaHold
+ModelVersion    : 1.0.0.6
+Description     :
+AdminUser       : MxAdmin
+Roles           : @{8dd52bfa-6d7e-453b-b506-303c0a3d9567=; 53f5d6fa-6da9-4a71-b011-454ec052cce8=}
+AdminRole       : 8dd52bfa-6d7e-453b-b506-303c0a3d9567
+Constants       : {@{Name=AdvanceGoogleMaps.BatchSize; Type=Integer; Description=Batch size would be the amount of elements allowed by
+                  the Google Distance Matrix API.
+
+                  At Time of Creation :
+
+                  The free version allows for 100 elements in a query, the cap should be
+                  set to 99. The queries will be made with one "origin" and 99 "destinations".
+
+                  The business version allows for 625 elements in a query, the cap should be
+                  set to 624. The queries will be made with one "origin" and 624 "destinations".; DefaultValue=99}}
+ScheduledEvents : {}
+Configuration   : @{SourceDatabaseType=HSQLDB; SourceDatabaseName=default; SourceBuiltInDatabasePath=model/sampledata/data/database}
+RequestHandlers : {@{Name=/api/; DefaultEnabled=True; MatchExactly=False}, @{Name=/link/; DefaultEnabled=True; MatchExactly=False}, @{Name=/ws/; DefaultEnabled=True; MatchExactly=False}, @{Name=/ws-doc/; Defaul
+                  tEnabled=False; MatchExactly=False}...}
+```
+
 To update the app:
 
 ```powershell
 Update-MXWAPackMendixApp -ComputerName 172.16.1.65 -Credential $cred -Path ~\Desktop\Downloads\FieldExampleaHold_1.0.0.8.mda
+```
+
+To check what Runtime versions are installed:
+
+```powershell
+Get-MXWAPackInstalledServerPackage -ComputerName 172.16.1.65 -Credential $cred
+
+6.10.2
+6.8.1
 ```
 
 To install a newer Runtime version:
