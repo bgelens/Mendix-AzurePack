@@ -49,7 +49,7 @@ Next select the subscription you want to work with.
 Get-MXWAPackPublishSettingSubscription -Name Default | Select-MXWAPackPublishSettingSubscription
 ```
 
-To find all VM Role deployments you need to enumare the Cloud Services hosting them first.
+To find all VM Role deployments you need to enumerate the Cloud Services hosting them first.
 
 ```powershell
 Get-MXWAPackCloudService
