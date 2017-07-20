@@ -118,14 +118,14 @@ The installation needs to have a couple of prerequisites set / installed before 
   secedit.exe /configure /db secedit.sdb /cfg $tmpFile /areas USER_RIGHTS
   ```
 * Install Server Runtime
-  * Download the runtime: [Download]()
+  * Download the runtime: [Download](https://cdn.mendix.com/runtime/mxbuild-8.1.0.tar.gz)
   * Install the runtime
     ```powershell
     Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
     Install-MxServer -LiteralPath C:\mendix-6.8.1.tar.gz
     ```
 * Install Sample App
-  * Download the Sample App: [Download]()
+  * Download the Sample App: [Download](/MendixApp/FieldExampleaHold_1.0.0.8.mda)
   * Install the App
     ```powershell
     Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
