@@ -540,6 +540,131 @@ function Get-MXWAPackInstalledServerPackage {
     }
 }
 
+function Get-MXWAPackMendixServerLicenseInfo {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
+                    $instance = [Mendix.Service.Management.ApplicationManagerSettings]::Instance
+                    $settings = [Mendix.M2EE.Settings]::GetInstances($instance.AppsPath,$instance.MdsGuid,$instance.ServersPath)
+                    $client = New-Object -TypeName Mendix.M2EE.M2EEClient -ArgumentList @(
+                        [version]"1.0.0",
+                        "http://localhost:$($settings.AdminServerPortNumber)/",
+                        $settings.AdminServerPassword
+                    )
+                    $client.GetLicenseInfo()
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
+function Set-MXWAPackMendixServerLicense {
+[cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential,
+
+        [Parameter()]
+        [string] $NewServerKey,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $License
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            try {
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.M2EE.dll'
+                    Add-Type -Path 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Management.dll'
+                    $instance = [Mendix.Service.Management.ApplicationManagerSettings]::Instance
+                    $settings = [Mendix.M2EE.Settings]::GetInstances($instance.AppsPath,$instance.MdsGuid,$instance.ServersPath)
+                    
+                    $client = New-Object -TypeName Mendix.M2EE.M2EEClient -ArgumentList @(
+                        [version]"1.0.0",
+                        "http://localhost:$($settings.AdminServerPortNumber)/",
+                        $settings.AdminServerPassword
+                    )
+
+                    # trigger get first so license file content is written to disk
+                    $null = $client.GetLicenseInfo()
+
+                    if ($using:NewServerKey) {
+                        $licSettingsFile = Get-ChildItem -Path "$env:ProgramData\Mendix\MDS\$($instance.MdsGuid)"
+                        $settingsContent = Get-Content $licSettingsFile.FullName
+                        $oldId = ($settingsContent | Select-String -Pattern "id:").ToString().Split(':')[-1].Trim()
+                        if ($oldId -ne $using:NewServerKey) {
+                            Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
+                            $null = Stop-MxApp -Name MendixApp
+                            $null = New-Item -Path $licSettingsFile.PSParentPath -Name backup -ItemType Directory -Force
+                            if (!(Test-Path -Path "$($licSettingsFile.PSParentPath)\backup")) {
+                                $null = New-Item -Path "$($licSettingsFile.PSParentPath)\backup" -Name ([datetime]::Now).ToString('MMddyyhhmmss') -Value $oldId.ToString()
+                            }
+                            $settingsContent = $settingsContent.Replace($oldId, $using:NewServerKey)
+                            $settingsContent | Out-File -FilePath $licSettingsFile.FullName -Encoding utf8 -Force
+                            $null = Start-MxApp -Name MendixApp
+                        }
+                    }
+
+                    $client.SetLicenseKey(($using:License).Trim())
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
 function Start-MXWAPackMendixApp {
     [cmdletbinding()]
     param (
@@ -779,7 +904,7 @@ function Get-MXWAPackMendixAppPackage {
         [string] $Path
     )
     $resolvedPath = (Resolve-Path -Path $Path).ToString()
-    $fileGuid = [guid]::NewGuid().ToString()
+    $fileGuid = [guid]::NewGuid().Guid
     $manifestFile = [io.compression.zipfile]::OpenRead($resolvedPath).Entries |
         Where-Object -FilterScript {$_.FullName -eq 'model/metadata.json'}
     [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestFile, "$env:TEMP\$fileGuid.json", $true)
