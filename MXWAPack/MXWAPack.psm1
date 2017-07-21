@@ -915,6 +915,136 @@ function Get-MXWAPackMendixAppPackage {
     }
 }
 
+function Add-MXWAPackSSLBinding {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('IPAddress')]
+        [string[]] $ComputerName,
+
+        [Parameter(Mandatory)]
+        [pscredential] 
+        [System.Management.Automation.CredentialAttribute()] $Credential,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            (Test-Path -Path $_) -and
+            ($_.Split('.')[-1] -eq 'pfx')
+        })]
+        [string] $Path,
+
+        [Parameter(Mandatory)]
+        [securestring] $Pin,
+
+        [switch] $TryImportTrustChain,
+
+        [switch] $UseUnencryptedConnection
+    )
+    process {
+        foreach ($c in $ComputerName) {
+            $sessionArgs = @{
+                ComputerName = $c
+                Credential =  $Credential
+            }
+            if (!$UseUnencryptedConnection) {
+                [void] $sessionArgs.Add('UseSSL', $true)
+                [void] $sessionArgs.Add('SessionOption', (New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck))
+            }
+
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($pinging)
+            $plainTextPin = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+
+            try {
+                $resolvedPath = (Resolve-Path -Path $Path).ToString()
+
+                # first check pfx is valid, throw if not
+                $certCollection = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+                $certCollection.Import(
+                    $resolvedPath,
+                    $plainTextPin,
+                    [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
+                )
+
+                if ($certCollection.Count -eq 0) {
+                    Write-Error -Message 'PFX is either invalid or doesn''t include any certificates' -ErrorAction Stop
+                }
+
+                $psSession = New-PSSession @sessionArgs -ErrorAction Stop
+                $fileName = $resolvedPath.Split('\')[-1]
+                $tempDir = Invoke-Command -Session $psSession -ScriptBlock { $env:Temp }
+                Copy-Item -ToSession $psSession -Path $resolvedPath -Destination $tempDir\$fileName -Force
+                Invoke-Command -Session $psSession -ScriptBlock {
+                    $pfxPath = (Resolve-Path $env:Temp\$using:fileName).ToString()
+
+                    if ($using:TryImportTrustChain) {
+                        function ImportCertPublicKey {
+                            param (
+                                [Parameter(Mandatory)]
+                                [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
+
+                                [Parameter()]
+                                [ValidateSet('CA', 'Root')]
+                                [string] $Store
+                            )
+                            try {
+                                $certGuid = [guid]::NewGuid().Guid
+                                $certByteArray = $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+                                [System.IO.File]::WriteAllBytes("$env:TEMP\$certGuid.cer",$certByteArray)
+                                $null = Import-Certificate -FilePath "$env:TEMP\$certGuid.cer" -CertStoreLocation Cert:\LocalMachine\$Store
+                            } finally {
+                                $null = Remove-Item -Path "$env:TEMP\$certGuid.cer" -ErrorAction SilentlyContinue
+                            }
+                        }
+
+                        $certCollection = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+                        $certCollection.Import(
+                            $pfxPath,
+                            $using:plainTextPin,
+                            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
+                        )
+
+                        if ($CertCollection.Count -eq 2) {
+                            ImportCertPublicKey -Certificate $certCollection[0] -Store Root
+                        } elseif ($certCollection.Count -gt 2) {
+                            ImportCertPublicKey -Certificate $certCollection[-2] -Store Root
+                            $maxIndex = $certCollection.Count - 2
+                            for ($i = 0; $i -lt $maxIndex; $i++) {
+                                ImportCertPublicKey -Certificate $certCollection[$i] -Store CA
+                            }
+                        } elseif ($certCollection[-1].Issuer -eq $certCollection[-1].Subject) {
+                            ImportCertPublicKey -Certificate $certCollection[-1] -Store Root
+                        }
+                    }
+
+                    $certImportArgs = @{
+                        FilePath = $pfxPath
+                        Password = ConvertTo-SecureString -String $using:plainTextPin -AsPlainText -Force
+                        CertStoreLocation = 'Cert:\LocalMachine\My'
+                    }
+                    $cert = Import-PfxCertificate  @CertImportArgs
+
+                    Import-Module -Name WebAdministration
+                    $currentSSLBinding = Get-WebBinding -Name MendixApp -Protocol https
+                    if ($currentSSLBinding) {
+                        $currentSSLBinding | Remove-WebBinding
+                        Remove-Item -Path IIS:\SslBindings\0.0.0.0!443 -ErrorAction SilentlyContinue
+                    }
+                    New-WebBinding -Protocol https -Port 443 -IPAddress * -Name MendixApp
+                    $null = New-Item -Path 'IIS:\SslBindings\0.0.0.0!443' -Thumbprint $cert.Thumbprint
+                }
+            } catch {
+                Write-Error -ErrorRecord $_ -ErrorAction Continue
+            } finally {
+                if ($null -ne $psSession) {
+                    $psSession | Remove-PSSession
+                }
+            }
+        }
+    }
+}
+
 # helper functions
 function PreFlight {
     param (
