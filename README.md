@@ -19,4 +19,4 @@ This repository contains:
 
 \* Currently the MXWAPack PowerShell module only works when the Public Tenant API Certificate is trusted.
 
-The Mendix SingleInstance VM Role targets a local PostgreSQL Instance. If you are planning to deploy against a shared SQL Server backend, see [this](https://github.com/itnetxbe/VMRoles/tree/master/SQL2016) external documentation to create a SQL VM Role or [this](https://github.com/itnetxbe/VMRoles/tree/master/SQL2016AO) to create a SQL Always On VM Role and deploy the Mendix Multi Instance VM Role instead of the Single Instance.
+The Mendix SingleInstance VM Role targets a local PostgreSQL Instance. If you are planning to deploy against a shared SQL Server backend, see [this](https://github.com/itnetxbe/VMRoles/tree/master/SQL2016) external documentation to create a SQL VM Role or [this](https://github.com/itnetxbe/VMRoles/tree/master/SQL2016AO) to create a SQL Always On VM Role and deploy the Mendix Multi Instance VM Role instead of the Single Instance. Make sure the SQL server supports SQL authentication!
