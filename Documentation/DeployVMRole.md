@@ -257,3 +257,85 @@ Or restart them:
 ```powershell
 $VMRole | Get-MXWAPackVMRoleVM | Restart-MXWAPackVMRoleVM
 ```
+
+To Scale In / Out the amount of instances of a VM Role first check the current amount of VM instances that are provisioned.
+
+```powershell
+# check current instance count
+$VMRole = Get-MXWAPackCloudService -Name MyMendixApp | Get-MXWAPackVMRole
+$VMRole.InstanceView.InstanceCount
+
+1
+```
+
+Next check the maximum amount that can be scaled up / down
+
+```powershell
+$VMRole.ResourceDefinition.IntrinsicSettings.ScaleOutSettings
+
+InitialInstanceCount MaximumInstanceCount MinimumInstanceCount UpgradeDomainCount
+-------------------- -------------------- -------------------- ------------------
+1                    10                   1                    1
+```
+
+In this case there is 1 VM instance provisioned and it can be scaled out until 10 VM Instances.
+
+Let's scale the VM Role out to 3 VM Instances:
+
+```powershell
+$VMRole = Get-MXWAPackCloudService -Name MyMendixApp | Get-MXWAPackVMRole
+$VMRole | Invoke-MXWAPackVMRoleScaleAction -Action ScaleUp -Unit 2
+```
+
+And scale it down to 2 VM Instances:
+
+```powershell
+$VMRole = Get-MXWAPackCloudService -Name MyMendixApp | Get-MXWAPackVMRole
+$VMRole | Invoke-MXWAPackVMRoleScaleAction -Action ScaleDown -Unit 1
+```
+
+\* Note that the VMRole variable is refreshed every time as it represents stale data and is not automatically updated.
+
+It is possible that the deployment or scaling in / out action failed:
+
+```powershell
+$VMRole = Get-MXWAPackCloudService -Name MyMendixApp | Get-MXWAPackVMRole
+$VMRole
+
+
+Name                  : MyMendixApp
+Label                 : MyMendixApp
+ResourceDefinition    : @{Name=MendixSingleInstance; Version=1.0.0.0; Publisher=Mendix; SchemaVersion=1.0; Type=Microsoft.Compute/VMRole/1.0; ResourceParameters=System.Object[]; R
+                        esourceExtensionReferences=System.Object[]; IntrinsicSettings=}
+ResourceConfiguration : @{Version=1.0.0.0; ParameterValues={"VMRoleVMSize":"Small","VMRoleAdminCredential":"administrator:__**__","VMRoleComputerNamePattern":"Mendix###","VMRoleNe
+                        tworkRef":"Tenant","VMRoleOSVirtualHardDiskImage":"Mendix:1.0.0.0"}}
+ProvisioningState     : Failed
+Substate              : @{VMRoleMessages=System.Object[]}
+InstanceView          : @{VIPs=System.Object[]; InstanceCount=1; ResolvedResourceDefinition=}
+```
+
+In this case you can either remove the VM Role by deleting the Cloud Service and deploy again:
+
+```powershell
+Get-MXWAPackCloudService -Name MyMendixApp | Remove-MXWAPackCloudService
+
+Confirm
+Are you sure you want to perform this action?
+Performing the operation "Remove-MXWAPackCloudService" on target "ben".
+[Y] Yes [A] Yes to All [N] No [L] No to All [S] Suspend [?] Help (default is "Yes"):
+
+# you can overwrite the confirmation inquiry
+# Get-MXWAPackCloudService -Name MyMendixApp | Remove-MXWAPackCloudService -Confirm:$false
+```
+
+Or try to repair / retry the action:
+
+```powershell
+# this will skip the VM that failed and move on the the next VM if applicable
+$VMRole | Repair-MXWAPackVMRole
+
+# this will retry the VM that failed
+$VMRole | Repair-MXWAPackVMRole -Retry
+```
+
+It is possible that a Repair is needed before an alternate action as Remove or Scale Up / Down can be executed.
