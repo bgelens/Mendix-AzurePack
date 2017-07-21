@@ -17,11 +17,11 @@ $vmNet = Get-MXWAPackVMNetwork -Name Tenant
 # Lookup the VM size to use
 $size = Get-MXWAPackVMRoleSizeProfile -Name Medium
 
-# Lookup the VM OS disk to use
-$osDisk = $gi | Get-MXWAPackVMRoleOSDisk
-
 # Get the Gallery Item to deploy
 $gi = Get-MXWAPackGalleryItem -Name SQLServer2016
+
+# Lookup the VM OS disk to use
+$osDisk = $gi | Get-MXWAPackVMRoleOSDisk
 
 # Get the Gallery Item properties
 $params = $gi | New-MXWAPackGalleryItemParameterObject
