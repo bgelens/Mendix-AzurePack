@@ -16,6 +16,7 @@ This repository contains:
 * Examples
   * [Single Instance End to End](/Examples/01-SingleInstance_End2End.ps1)
   * [Deploy SQL VM Role and acquire data to construct connection string](/Examples/02-SQLInstance.ps1)
+  * [Multi Intance](/Examples/03-MultiInstance.ps1)
 
 \* Currently the MXWAPack PowerShell module only works when the Public Tenant API Certificate is trusted.
 
