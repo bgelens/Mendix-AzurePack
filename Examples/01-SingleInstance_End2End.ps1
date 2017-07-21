@@ -110,3 +110,14 @@ Stop-MXWAPackMendixApp -ComputerName $ipAddress -Credential $cred
 
 # Start Mendix App
 Start-MXWAPackMendixApp -ComputerName $ipAddress -Credential $cred
+
+# Install and bind SSL certificate so port 443 will be available
+$pin = Read-Host -AsSecureString -Prompt Pin
+Add-MXWAPackSSLBinding -ComputerName $ipAddress -Credential $cred -Path ~\Desktop\MyCert.pfx -Pin $pin -TryImportTrustChain
+
+# Get LincenseId to aqcuire License key from Mendix support
+Get-MXWAPackMendixServerLicenseInfo -ComputerName $ipAddress -Credential $cred
+
+# Set LicenseKey once acquired from Mendix support
+$lic = 'Key Provided by Mendix support'
+Set-MXWAPackMendixServerLicense -License $lic -ComputerName $ipAddress -Credential $cred
