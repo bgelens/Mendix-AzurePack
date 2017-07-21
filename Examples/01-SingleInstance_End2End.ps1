@@ -103,7 +103,7 @@ Get-MXWAPackMendixAppPackage -Path ~\Desktop\Downloads\FieldExampleaHold_1.0.0.8
 Install-MXWAPackServerPackage -ComputerName $ipAddress -Credential $cred -Path ~\Desktop\Downloads\mendix-6.10.2.tar.gz
 
 # Update the Application with new package
-Update-MXWAPackMendixApp -ComputerName $ipAddress -Credential $cred -Path ~\Desktop\Downloads\FieldExampleaHold_1.0.0.8.mda
+Update-MXWAPackMendixApp -ComputerName $ipAddress -Credential $cred -Path ~\Desktop\Downloads\FieldExampleaHold_1.0.0.8.mda -SynchronizeDatabase
 
 # Stop Mendix App
 Stop-MXWAPackMendixApp -ComputerName $ipAddress -Credential $cred

@@ -853,7 +853,9 @@ function Update-MXWAPackMendixApp {
         })]
         [string] $Path,
 
-        [switch] $UseUnencryptedConnection
+        [switch] $UseUnencryptedConnection,
+
+        [switch] $SynchronizeDatabase
     )
     process {
         foreach ($c in $ComputerName) {
@@ -876,8 +878,13 @@ function Update-MXWAPackMendixApp {
                     Import-Module -Name 'C:\Program Files (x86)\Mendix\Service Console\Mendix.Service.Commands.dll'
                     $packagePath = (Resolve-Path $env:Temp\$using:fileName).ToString()
                     $null = Stop-MxApp -Name MendixApp
-                    $null = Update-MxApp -LiteralPath $packagePath -Name MendixApp |
-                        Start-MxApp -SynchronizeDatabase
+                    if ($using:SynchronizeDatabase) {
+                        $null = Update-MxApp -LiteralPath $packagePath -Name MendixApp |
+                            Start-MxApp -SynchronizeDatabase
+                    } else {
+                        $null = Update-MxApp -LiteralPath $packagePath -Name MendixApp |
+                            Start-MxApp
+                    }
                     Remove-Item -Path $packagePath -Force
                 }
             } catch {
