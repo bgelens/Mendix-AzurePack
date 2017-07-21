@@ -7,6 +7,7 @@ In order to publish the gallery resources as a gallery item, you must:
 
 - Import the resource extension package(s) into System Center Virtual Machine Manager.
 - Ensure the virtual hard disk(s) in SCVMM are properly prepared and have all the necessary properties set.
+- Ensure the cloud supports the correct Generation of VMs.
 - Import the resource definition package(s) as a gallery item.
 - Make the gallery item(s) public.
 - Add the gallery item(s) to a plan.
@@ -65,6 +66,25 @@ Once the VHDx File(s) are added to the library and have been discovered, they ne
   Get-SCVirtualHardDisk -Name MendixMultiInstance.vhdx |
       Set-SCVirtualHardDisk -Tag @('MendixMultiInstance') -Release 1.0.0.0 -FamilyName 'Mendix MultiInstance' -VirtualizationPlatform HyperV -ProductKey 'Enter Product Key here'
   ```
+
+### Ensure the cloud supports the correct VM Generation
+
+Which VM generation is supported is specified at the cloud level. Gen 1 and Gen 2 VMs for Windows Azure Pack are mutually exclusive within the Cloud boundary.
+
+![cloudprops](Images/cloudprops.png)
+
+In this example, the VMs that will be created against the ```Tenant``` cloud will be of generation type 2 (UEFI).
+
+At the time of writing the following customizations can be set on a Cloud Level that are respected by Windows Azure Pack:
+
+- CreateHighlyAvailableVmRoles ( true | **false** )
+  Whether the Hyper-V hosts wihin the specified Host Group for the Cloud are clusters or not.
+- DifferencingDiskOptimizationSupported ( **true** | false )
+  Whether the VMs should be using a shared "parent" disk and use differencing disks to link to them or have their own standard disks.
+- SupportedVmGenerationForVmRole ( **1** | 2 )
+  Whether VMs should be of type Generation 1 (BIOS) or Generation 2 (UEFI).
+
+\* The defaults are in bold
 
 ### Windows Azure Pack Service Administrator Portal
 
