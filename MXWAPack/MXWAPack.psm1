@@ -365,23 +365,23 @@ function Invoke-MXWAPackVMRoleScaleAction {
 
     $scaleProperties = $VMRole.ResourceDefinition.IntrinsicSettings.ScaleOutSettings
 
-    $currentInstanceCount = ($VMRole | Get-MXWAPackVMRoleVM).Count
+    $currentInstanceCount = $VMRole.InstanceView.InstanceCount -as [uint16]
 
     if ($Action -eq 'ScaleUp') {
-        if ($currentInstanceCount -eq $scaleProperties.MaximumInstanceCount) {
+        if ($currentInstanceCount -eq [uint16]$scaleProperties.MaximumInstanceCount) {
             Write-Error -Message ('Cannot Scale Up as Maximum instances {0} are already in place' -f $scaleProperties.MaximumInstanceCount) -ErrorAction stop
         }
-        if ($currentInstanceCount + $Unit -gt $scaleProperties.MaximumInstanceCount) {
+        if ($currentInstanceCount + $Unit -gt [uint16]$scaleProperties.MaximumInstanceCount) {
             Write-Error -Message ('Cannot Scale Up by {0} units as this would breach the Maximum allowed instance count {1}' -f $Unit, $scaleProperties.MaximumInstanceCount) -ErrorAction stop
         }
         $body = @{
             InstanceCount = $currentInstanceCount + $Unit
         } | ConvertTo-Json
     } else {
-        if ($currentInstanceCount -eq $scaleProperties.MinimumInstanceCount) {
+        if ($currentInstanceCount -eq [uint16]$scaleProperties.MinimumInstanceCount) {
             Write-Error -Message ('Cannot Scale Down as the current amount of instances {0} is the Minimum amount' -f $currentInstanceCount) -ErrorAction stop
         }
-        if ($currentInstanceCount - $Unit -lt $scaleProperties.MinimumInstanceCount) {
+        if ($currentInstanceCount - $Unit -lt [uint16]$scaleProperties.MinimumInstanceCount) {
             Write-Error -Message ('Cannot Scale Down by {0} units as this would breach the Minimum allowed instance count {1}' -f $Unit, $scaleProperties.MinimumInstanceCount) -ErrorAction stop
         }
         $body = @{
