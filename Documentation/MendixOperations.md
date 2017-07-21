@@ -114,7 +114,7 @@ IPAddress    NetworkName Port
 ```
 
 >>Please note that the IPv4 address shown here is an "internal" ip address and the port displayed is the RDP port (which can be ignored as tcp 5986 is used for remote connectivity to the VM).
->>If you want to connect to the VM using this ip address, you need to be connected to that network.
+>>If you want to connect to the VM using this ip address, you need to be directly or indirectly connected to that network.
 >>Alternatively, if deployed in an Azure Pack environment using network virtualization, a PAT rule can be created for the VM so the port 5986 is exposed via a public IP.
 
 Now you can run functions where the name starts with the noun ```MXWAPackMendixApp``` to manipulate the Mendix App / Services via the VMs address.
@@ -251,4 +251,55 @@ To install a newer Runtime version:
 
 ```powershell
 Install-MXWAPackServerPackage -ComputerName 172.16.1.65 -Credential $cred -Path ~\Desktop\Downloads\mendix-6.8.1.tar.gz -Verbose
+```
+
+To get the current license information:
+
+```powershell
+Get-MXWAPackMendixServerLicenseInfo -ComputerName 172.16.1.65 -Credential $cred
+
+PSComputerName : 172.16.1.65
+RunspaceId     : 6d3f81b0-3e72-4b4e-bc32-80ce65fc8f8a
+LicenseId      : 1MomWVmb1wxTS3kb4hsnczSHSUs=
+License        : 
+```
+
+Use the LicenseId to acquire a License for the server via [Mendix support](https://support.mendix.com). Create a new _Key Change request (on-premises)_ ticket. Once Mendix has provided you with a key, you can import it using ```Set-MXWAPackMendixServerLicense```
+
+To set the Licensekey:
+
+```powershell
+$lic = 'Key Provided by Mendix support'
+Set-MXWAPackMendixServerLicense -License $lic -ComputerName 172.16.1.65 -Credential $cred
+
+Get-MXWAPackMendixServerLicenseInfo -ComputerName 172.16.1.65 -Credential $cred
+
+PSComputerName : 172.16.1.65
+RunspaceId     : 6d3f81b0-3e72-4b4e-bc32-80ce65fc8f8a
+LicenseId      : 1MomWVmb1wxTS3kb4hsnczSHSUs=
+License        : Mendix.M2EE.ResponseTypes.License
+```
+
+If you got a Server Key togheter with your License Key, you need to run ```Set-MXWAPackMendixServerLicense``` with different parameters:
+
+```powershell
+$lic = 'Key Provided by Mendix'
+$serverKey = 'Key Povided by Mendix'
+Set-MXWAPackMendixServerLicense -License $lic -ComputerName 172.16.1.65 -Credential $cred -NewServerKey $serverKey
+```
+
+\* When overwriting the Server Key, the Mendix runtime will be restarted.
+
+To import a certificate and bind it to the webserver:
+
+```powershell
+$pin = Read-Host -AsSecureString -Prompt Pin
+Add-MXWAPackSSLBinding -ComputerName 172.16.1.65 -Credential $cred -Path ~\Desktop\MyCert.pfx -Pin $pin
+```
+
+The ```Add-MXWAPackSSLBinding``` has an additional switch that will try to import all root and intermediate certificates contained in the pfx file and place them in the correct certificate stores. For a self-signed certificate this would mean that the self-signed certificate is also imported in the root store besides the my store so the Server trusts it's own certificate).
+
+```powershell
+$pin = Read-Host -AsSecureString -Prompt Pin
+Add-MXWAPackSSLBinding -ComputerName 172.16.1.65 -Credential $cred -Path ~\Desktop\MyCert.pfx -Pin $pin -TryImportTrustChain
 ```

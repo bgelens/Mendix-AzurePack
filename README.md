@@ -12,7 +12,7 @@ This repository contains:
     * [Multi Instance](/Documentation/BaseImage_MultiInstance.md)
   * [Make VM Role available for tenants](/Documentation/AddVMRole.md)
   * [Deploy VM Role using MXWAPack PowerShell module](/Documentation/DeployVMRole.md)
-  * [Start / Stop / Update Mendix Application instructions using MXWAPack PowerShell module](/Documentation/MendixOperations.md)
+  * [Mendix operational instructions using MXWAPack PowerShell module](/Documentation/MendixOperations.md)
 * Examples
   * [Single Instance End to End](/Examples/01-SingleInstance_End2End.ps1)
 
