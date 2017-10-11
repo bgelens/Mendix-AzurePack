@@ -6,6 +6,7 @@ This repository contains:
 * VM Role artifacts
   * [MendixSingleInstance](/VMRole/MendixSingleInstance)
   * [MendixMultiInstance](/VMRole/MendixMultiInstance)
+  * [MendixMultiInstanceSQLPaaS](VMRole/MendixMultiInstanceSQLPaaS)
 * Documentation
   * Base Image Creation
     * [Single Instance](/Documentation/BaseImage.md)
